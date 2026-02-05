@@ -1,4 +1,4 @@
-a# AlgoMentor Backend
+# AlgoMentor Backend
 
 AlgoMentor is a Spring Boot backend API that analyzes algorithm solutions and returns a **strict, structured JSON report** covering correctness, complexity, edge cases, pitfalls, tests, and improvements.
 
