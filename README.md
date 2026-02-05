@@ -154,4 +154,3 @@ Built as a **portfolio project for backend / internship roles**, not a demo scri
 
 **Elchibek Dastanov**
 Computer Science Student | Software Engineer
-Spring Boot · Java · API Design · LLM Integration
