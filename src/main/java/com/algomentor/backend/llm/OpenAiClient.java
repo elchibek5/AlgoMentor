@@ -4,17 +4,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.cdimascio.dotenv.Dotenv;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 @Component
 @ConditionalOnProperty(name = "openai.apiKey")
@@ -58,6 +56,15 @@ public class OpenAiClient implements LlmClient {
 
     @Override
     public String analyzeToJson(String prompt) {
+        return sendPrompt(prompt);
+    }
+
+    @Override
+    public String chat(String prompt) {
+        return sendPrompt(prompt);
+    }
+
+    private String sendPrompt(String prompt) {
         try {
             String body = om.createObjectNode()
                     .put("model", model)
@@ -79,35 +86,39 @@ public class OpenAiClient implements LlmClient {
             }
 
             JsonNode root = om.readTree(resp.body());
-
-// 1) New Responses format: output -> [ { content: [ { type: "output_text", text: "..." } ] } ]
-            JsonNode output = root.get("output");
-            if (output != null && output.isArray()) {
-                StringBuilder sb = new StringBuilder();
-                for (JsonNode item : output) {
-                    JsonNode content = item.get("content");
-                    if (content != null && content.isArray()) {
-                        for (JsonNode c : content) {
-                            String type = c.path("type").asText("");
-                            if ("output_text".equals(type)) {
-                                sb.append(c.path("text").asText(""));
-                            }
-                        }
-                    }
-                }
-                if (!sb.isEmpty()) return sb.toString().trim();
-            }
-
-            // 2) Backward/alternate: output_text (some SDKs flatten it)
-            JsonNode outputText = root.get("output_text");
-            if (outputText != null && outputText.isTextual()) return outputText.asText().trim();
-
-            throw new RuntimeException("No output text found in response: " + resp.body());
-
+            return extractOutputText(root, resp.body());
 
         } catch (Exception e) {
             throw new RuntimeException("OpenAI request failed: " + e.getMessage(), e);
         }
+    }
+
+    private String extractOutputText(JsonNode root, String rawBody) {
+        JsonNode output = root.get("output");
+        if (output != null && output.isArray()) {
+            StringBuilder sb = new StringBuilder();
+            for (JsonNode item : output) {
+                JsonNode content = item.get("content");
+                if (content != null && content.isArray()) {
+                    for (JsonNode c : content) {
+                        String type = c.path("type").asText("");
+                        if ("output_text".equals(type)) {
+                            sb.append(c.path("text").asText(""));
+                        }
+                    }
+                }
+            }
+            if (!sb.isEmpty()) {
+                return sb.toString().trim();
+            }
+        }
+
+        JsonNode outputText = root.get("output_text");
+        if (outputText != null && outputText.isTextual()) {
+            return outputText.asText().trim();
+        }
+
+        throw new RuntimeException("No output text found in response: " + rawBody);
     }
 
     private String loadKeyFromEnvFile() {

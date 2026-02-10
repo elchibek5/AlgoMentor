@@ -7,48 +7,51 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(AnalyzeController.class)
-class AnalyzeControllerTest {
+@WebMvcTest(ChatController.class)
+class ChatControllerTest {
 
     @Autowired
     private MockMvc mvc;
 
     @MockBean
-    private AnalyzeService service;
-
+    private ChatService chatService;
 
     @Test
-    void missingSolution_returns400() throws Exception {
+    void missingQuestion_returns400() throws Exception {
         String body = """
         {
-          "language": "java",
-          "mode": "interview"
+          "language": "java"
         }
         """;
 
-        mvc.perform(post("/api/analyze")
+        mvc.perform(post("/api/chat")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void invalidMode_returns400() throws Exception {
+    void validRequest_returnsAnswer() throws Exception {
+        when(chatService.ask(any())).thenReturn(new ChatResponse("Start with brute force, then optimize to O(n)."));
+
         String body = """
         {
+          "question": "How do I solve this better?",
           "language": "java",
-          "solution": "class Solution {}",
-          "mode": "expert"
+          "problem": "Two Sum"
         }
         """;
 
-        mvc.perform(post("/api/analyze")
+        mvc.perform(post("/api/chat")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.answer").value("Start with brute force, then optimize to O(n)."));
     }
-
 }
