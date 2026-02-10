@@ -1,19 +1,26 @@
 package com.algomentor.backend;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 public class AnalyzeRequest {
 
     @NotBlank
+    @Size(max = 30)
     private String language;
 
+    @Size(max = 200)
     private String problem;
 
     @NotBlank
+    @Size(max = 20000)
     private String solution;
 
+    @Size(max = 2000)
     private String constraints;
 
+    @Pattern(regexp = "(?i)^(interview|simple|deep)?$", message = "mode must be INTERVIEW, SIMPLE, or DEEP")
     private String mode;
 
     public String getLanguage() { return language; }

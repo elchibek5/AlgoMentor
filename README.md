@@ -98,6 +98,31 @@ POST /api/analyze
 }
 ```
 
+
+### Ask the Mentor Chatbot
+```
+POST /api/chat
+```
+
+**Request**
+```json
+{
+  "question": "Why is my solution timing out?",
+  "language": "java",
+  "problem": "Two Sum",
+  "constraints": "n up to 1e5",
+  "solution": "class Solution { ... }",
+  "context": "I tried nested loops"
+}
+```
+
+**Response**
+```json
+{
+  "answer": "Your nested loops are O(n^2). Use a hash map for O(n)."
+}
+```
+
 ---
 
 ## 🛡 Reliability & Quality

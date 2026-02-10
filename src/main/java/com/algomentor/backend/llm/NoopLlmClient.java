@@ -10,4 +10,9 @@ public class NoopLlmClient implements LlmClient {
     public String analyzeToJson(String prompt) {
         throw new IllegalStateException("LLM is not configured. Set OPENAI_API_KEY (or openai.apiKey).");
     }
+
+    @Override
+    public String chat(String prompt) {
+        throw new IllegalStateException("LLM is not configured. Set OPENAI_API_KEY (or openai.apiKey).");
+    }
 }
