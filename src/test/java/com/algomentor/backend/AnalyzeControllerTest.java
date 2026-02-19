@@ -7,7 +7,10 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AnalyzeController.class)
@@ -49,6 +52,26 @@ class AnalyzeControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
+    }
+
+
+    @Test
+    void invalidModelOutput_returns502() throws Exception {
+        doThrow(new InvalidModelOutputException("bad output")).when(service).analyze(any());
+
+        String body = """
+        {
+          "language": "java",
+          "solution": "class Solution {}",
+          "mode": "interview"
+        }
+        """;
+
+        mvc.perform(post("/api/analyze")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.error").value("invalid_model_output"));
     }
 
 }

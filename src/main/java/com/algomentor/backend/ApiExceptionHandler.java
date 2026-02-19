@@ -33,6 +33,19 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
+
+    @ExceptionHandler(InvalidModelOutputException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidModelOutput(InvalidModelOutputException ex) {
+        log.warn("Invalid model output: {}", ex.getMessage());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("error", "invalid_model_output");
+        body.put("status", 502);
+        body.put("message", "Unable to generate a valid analysis right now. Please retry.");
+
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
+    }
+
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(NoResourceFoundException ex) {
         Map<String, Object> body = new LinkedHashMap<>();

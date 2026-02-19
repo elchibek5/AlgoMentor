@@ -5,8 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.regex.Pattern;
+
 @Service
 public class AnalyzeService {
+
+    private static final Pattern BIG_O_PATTERN = Pattern.compile("^O\\(.+\\)$");
 
     private final LlmClient llm;
     private final ObjectMapper om;
@@ -22,18 +27,23 @@ public class AnalyzeService {
         String raw = llm.analyzeToJson(prompt);
         AnalyzeResponse parsed = tryParse(raw);
 
-        if (parsed != null) return parsed;
+        if (parsed != null) {
+            validateResponse(parsed);
+            return parsed;
+        }
 
-        // Retry once: ask model to fix JSON
         String fixPrompt = "Fix the following to be VALID JSON that matches the required schema exactly. " +
-                "Return JSON only.\n\n" + raw;
+                "Return JSON only.\\n\\n" + raw;
 
         String fixed = llm.analyzeToJson(fixPrompt);
         parsed = tryParse(fixed);
 
-        if (parsed != null) return parsed;
+        if (parsed != null) {
+            validateResponse(parsed);
+            return parsed;
+        }
 
-        throw new RuntimeException("Model returned invalid JSON twice.");
+        throw new InvalidModelOutputException("Model returned invalid JSON twice.");
     }
 
     private AnalyzeResponse tryParse(String s) {
@@ -43,11 +53,9 @@ public class AnalyzeService {
             String cleaned = extractJsonObject(s.trim());
             if (cleaned == null) return null;
 
-            // Ensure it's valid JSON object
             var node = om.readTree(cleaned);
             if (!node.isObject()) return null;
 
-            // Normalize JSON (removes weird whitespace/trailing junk issues)
             String normalized = om.writeValueAsString(node);
 
             return om.readValue(normalized, AnalyzeResponse.class);
@@ -63,9 +71,61 @@ public class AnalyzeService {
         return s.substring(start, end + 1);
     }
 
+    private void validateResponse(AnalyzeResponse response) {
+        requireNonEmptyList(response.getSummary(), "summary");
+        require(response.getCorrectness() != null, "correctness");
+        require(response.getComplexity() != null, "complexity");
+        requireNonEmptyList(response.getEdgeCases(), "edgeCases");
+        requireNonEmptyList(response.getPitfalls(), "pitfalls");
+        requireNonEmptyList(response.getTests(), "tests");
+        requireNonEmptyList(response.getImprovements(), "improvements");
+
+        AnalyzeResponse.Correctness correctness = response.getCorrectness();
+        requireNonBlank(correctness.getIntuition(), "correctness.intuition");
+        requireNonEmptyList(correctness.getInvariants(), "correctness.invariants");
+        requireNonBlank(correctness.getProofSketch(), "correctness.proofSketch");
+
+        AnalyzeResponse.Complexity complexity = response.getComplexity();
+        requireBigO(complexity.getTime(), "complexity.time");
+        requireBigO(complexity.getSpace(), "complexity.space");
+        requireNonBlank(complexity.getExplanation(), "complexity.explanation");
+
+        for (int i = 0; i < response.getEdgeCases().size(); i++) {
+            AnalyzeResponse.EdgeCase edgeCase = response.getEdgeCases().get(i);
+            require(edgeCase != null, "edgeCases[" + i + "]");
+            requireNonBlank(edgeCase.getCaseValue(), "edgeCases[" + i + "].case");
+            requireNonBlank(edgeCase.getWhy(), "edgeCases[" + i + "].why");
+        }
+
+        for (int i = 0; i < response.getTests().size(); i++) {
+            AnalyzeResponse.TestCase testCase = response.getTests().get(i);
+            require(testCase != null, "tests[" + i + "]");
+            requireNonBlank(testCase.getInput(), "tests[" + i + "].input");
+            requireNonBlank(testCase.getExpected(), "tests[" + i + "].expected");
+            requireNonBlank(testCase.getPurpose(), "tests[" + i + "].purpose");
+        }
+    }
+
+    private void require(boolean condition, String field) {
+        if (!condition) {
+            throw new InvalidModelOutputException("Missing or invalid field: " + field);
+        }
+    }
+
+    private void requireNonBlank(String value, String field) {
+        require(value != null && !value.isBlank(), field);
+    }
+
+    private void requireNonEmptyList(List<?> value, String field) {
+        require(value != null && !value.isEmpty(), field);
+    }
+
+    private void requireBigO(String value, String field) {
+        requireNonBlank(value, field);
+        require(BIG_O_PATTERN.matcher(value.trim()).matches(), field + " must be Big-O format");
+    }
 
     private String buildPrompt(AnalyzeRequest req) {
-        // Normalize mode into the three supported values
         String mode = normalizeMode(req.getMode());
 
         return """
@@ -127,5 +187,4 @@ solution: %s
     private String safe(String s) {
         return (s == null) ? "" : s;
     }
-
 }
