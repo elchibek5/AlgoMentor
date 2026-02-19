@@ -1,5 +1,6 @@
 package com.algomentor.backend;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -7,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 @RestController
+@Profile({"local", "dev", "test"})
 public class DebugController {
     private final Environment env;
 

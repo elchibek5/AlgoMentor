@@ -68,6 +68,56 @@ class AnalyzeServiceTest {
         assertThrows(RuntimeException.class, () -> service.analyze(req));
     }
 
+
+    @Test
+    void throwsInvalidModelOutputWhenSchemaIsMissingRequiredFields() {
+        LlmClient llm = mock(LlmClient.class);
+        AnalyzeService service = new AnalyzeService(llm, new ObjectMapper());
+
+        when(llm.analyzeToJson(anyString())).thenReturn("""
+                {
+                  "summary": ["Assume one solution exists"],
+                  "correctness": {
+                    "intuition": "Use hash map",
+                    "invariants": ["Map contains visited elements"],
+                    "proofSketch": "Complement lookup guarantees correctness"
+                  },
+                  "complexity": {
+                    "time": "O(n)",
+                    "space": "O(n)",
+                    "explanation": "Single pass with map"
+                  },
+                  "edgeCases": [
+                    { "case": "minimum size array", "why": "edge boundary" }
+                  ],
+                  "pitfalls": ["Using nested loops"],
+                  "tests": [
+                    { "input": "[2,7]", "expected": "[0,1]", "purpose": "basic" }
+                  ]
+                }
+                """);
+
+        AnalyzeRequest req = new AnalyzeRequest();
+        req.setLanguage("java");
+        req.setSolution("class Solution {}");
+
+        assertThrows(InvalidModelOutputException.class, () -> service.analyze(req));
+    }
+
+    @Test
+    void throwsInvalidModelOutputWhenComplexityIsNotBigO() {
+        LlmClient llm = mock(LlmClient.class);
+        AnalyzeService service = new AnalyzeService(llm, new ObjectMapper());
+
+        when(llm.analyzeToJson(anyString())).thenReturn(validJson().replace("\"O(n)\"", "\"linear\""));
+
+        AnalyzeRequest req = new AnalyzeRequest();
+        req.setLanguage("java");
+        req.setSolution("class Solution {}");
+
+        assertThrows(InvalidModelOutputException.class, () -> service.analyze(req));
+    }
+
     private String validJson() {
         return """
                 {

@@ -24,6 +24,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
         String requestId = UUID.randomUUID().toString().substring(0, 8);
         MDC.put("rid", requestId);
+        response.setHeader("X-Request-Id", requestId);
 
         long start = System.currentTimeMillis();
         try {

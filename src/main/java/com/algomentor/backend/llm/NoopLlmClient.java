@@ -4,7 +4,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnMissingBean(LlmClient.class)
+@ConditionalOnMissingBean(OpenAiClient.class)
 public class NoopLlmClient implements LlmClient {
     @Override
     public String analyzeToJson(String prompt) {
