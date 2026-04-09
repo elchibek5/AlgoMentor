@@ -1,17 +1,32 @@
 package com.algomentor.backend;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;
 
+@Schema(description = "Comprehensive analysis of an algorithm solution")
 public class AnalyzeResponse {
 
+    @Schema(description = "Summary points and key assumptions")
     private List<String> summary;
+
+    @Schema(description = "Correctness analysis including intuition, invariants, and proof sketch")
     private Correctness correctness;
+
+    @Schema(description = "Time and space complexity analysis")
     private Complexity complexity;
+
+    @Schema(description = "Edge cases to consider")
     private List<EdgeCase> edgeCases;
+
+    @Schema(description = "Common pitfalls and mistakes to avoid")
     private List<String> pitfalls;
+
+    @Schema(description = "Suggested test cases")
     private List<TestCase> tests;
+
+    @Schema(description = "Potential improvements and optimizations")
     private List<String> improvements;
 
     public List<String> getSummary() { return summary; }
