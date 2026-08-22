@@ -1,21 +1,14 @@
 package com.algomentor.backend.llm;
 
+import com.algomentor.backend.LlmUnavailableException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.cdimascio.dotenv.Dotenv;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
-@Component
-@ConditionalOnProperty(name = "openai.apiKey")
 public class OpenAiClient implements LlmClient {
 
     private final String apiKey;
@@ -25,31 +18,11 @@ public class OpenAiClient implements LlmClient {
     private final HttpClient http = HttpClient.newHttpClient();
     private final ObjectMapper om = new ObjectMapper();
 
-    public OpenAiClient(
-            @Value("${openai.apiKey:}") String apiKey,
-            @Value("${openai.model:gpt-4.1-mini}") String model,
-            @Value("${openai.baseUrl:https://api.openai.com/v1}") String baseUrl
-    ) {
-
-        String resolved = apiKey;
-
-        if (resolved == null || resolved.isBlank()) {
-            resolved = System.getenv("OPENAI_API_KEY");
+    public OpenAiClient(String apiKey, String model, String baseUrl) {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("OpenAiClient requires a non-blank API key.");
         }
-
-        if (resolved == null || resolved.isBlank()) {
-            resolved = System.getProperty("OPENAI_API_KEY");
-        }
-
-        if (resolved == null || resolved.isBlank()) {
-            resolved = loadKeyFromEnvFile();
-        }
-
-        if (resolved == null || resolved.isBlank()) {
-            throw new IllegalStateException("OPENAI_API_KEY not loaded (check .env file location / working directory)");
-        }
-
-        this.apiKey = resolved;
+        this.apiKey = apiKey;
         this.model = model;
         this.baseUrl = baseUrl;
     }
@@ -82,15 +55,32 @@ public class OpenAiClient implements LlmClient {
             HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
 
             if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
-                throw new RuntimeException("OpenAI error " + resp.statusCode() + ": " + resp.body());
+                throw new LlmUnavailableException(describe(resp.statusCode()), null);
             }
 
             JsonNode root = om.readTree(resp.body());
             return extractOutputText(root, resp.body());
 
+        } catch (LlmUnavailableException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("OpenAI request failed: " + e.getMessage(), e);
+            throw new LlmUnavailableException(
+                    "Could not reach the model provider. Check your network connection.", e);
         }
+    }
+
+    /** Turns a provider status code into something the caller can actually act on. */
+    private static String describe(int status) {
+        return switch (status) {
+            case 401, 403 -> "The OPENAI_API_KEY was rejected. Check that the key in .env.local is "
+                    + "valid and still active.";
+            case 429 -> "Rate limit or quota exceeded on your OpenAI account. Check your billing "
+                    + "and usage limits, then retry.";
+            case 404 -> "The configured model was not found. Check the 'openai.model' property.";
+            default -> status >= 500
+                    ? "The model provider is having trouble right now. Please retry shortly."
+                    : "The model provider rejected the request (HTTP " + status + ").";
+        };
     }
 
     private String extractOutputText(JsonNode root, String rawBody) {
@@ -119,27 +109,6 @@ public class OpenAiClient implements LlmClient {
         }
 
         throw new RuntimeException("No output text found in response: " + rawBody);
-    }
-
-    private String loadKeyFromEnvFile() {
-        try {
-            Path dir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
-
-            while (dir != null) {
-                Path candidate = dir.resolve(".env");
-                if (Files.exists(candidate)) {
-                    Dotenv dotenv = Dotenv.configure()
-                            .directory(dir.toString())
-                            .ignoreIfMissing()
-                            .load();
-                    return dotenv.get("OPENAI_API_KEY");
-                }
-                dir = dir.getParent();
-            }
-            return null;
-        } catch (Exception e) {
-            return null;
-        }
     }
 
 }

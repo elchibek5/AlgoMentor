@@ -46,6 +46,18 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
     }
 
+    @ExceptionHandler(LlmUnavailableException.class)
+    public ResponseEntity<Map<String, Object>> handleLlmUnavailable(LlmUnavailableException ex) {
+        log.warn("LLM provider unavailable: {}", ex.getMessage());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("error", "llm_unavailable");
+        body.put("status", 503);
+        body.put("message", ex.getUserMessage());
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
+    }
+
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(NoResourceFoundException ex) {
         Map<String, Object> body = new LinkedHashMap<>();
