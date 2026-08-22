@@ -1,0 +1,10 @@
+{
+  "name": "algomentor-backend",
+  "version": "1.0.0",
+  "description": "AlgoMentor Backend - Spring Boot API for algorithm analysis",
+  "scripts": {
+    "dev": "./scripts/dev.sh",
+    "docker-up": "docker-compose up --build",
+    "docker-down": "docker-compose down"
+  }
+}
